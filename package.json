@@ -1,0 +1,46 @@
+{
+  "name": "recipe-view",
+  "version": "0.1.0",
+  "description": "Show your Apple Notes recipes on Apple HomeView (or any browser) with Safari's Start Cooking view.",
+  "type": "module",
+  "license": "MIT",
+  "bin": {
+    "recipe-view": "dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsx src/cli.ts",
+    "start": "node dist/cli.js",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "apple-notes",
+    "homeview",
+    "recipes",
+    "schema.org",
+    "safari"
+  ],
+  "dependencies": {
+    "@hono/node-server": "^2.1.8",
+    "cheerio": "^1.2.0",
+    "domhandler": "^6.0.1",
+    "hono": "^4.13.18"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dsuresh-ap/recipe-view.git"
+  }
+}

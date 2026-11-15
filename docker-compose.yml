@@ -1,0 +1,13 @@
+# Runs the recipe website in Docker. The Notes exporter must run on the Mac
+# itself (see README → "Run with Docker"); this container serves its output.
+services:
+  recipe-view:
+    image: ghcr.io/dsuresh-ap/recipe-view:latest
+    build: .
+    container_name: recipe-view
+    restart: unless-stopped
+    ports:
+      - "${RECIPE_VIEW_PORT:-4242}:4242"
+    volumes:
+      # Must match the exporter's --data folder (default ~/.recipe-view).
+      - "${RECIPE_VIEW_DATA:-${HOME}/.recipe-view}:/data:ro"
