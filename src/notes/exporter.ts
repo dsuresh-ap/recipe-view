@@ -13,6 +13,11 @@ import { readNotesFolder, type RawNote } from "./jxa.js";
 export interface NoteMeta {
   id: string;
   name: string;
+  /**
+   * Sub-folder path below the exported folder (see RawNote.folder); empty for
+   * notes directly in it. Missing in exports made before sub-folder support.
+   */
+  folder?: string;
   account: string;
   created: string;
   modified: string;
@@ -76,6 +81,7 @@ export async function writeExport(
     metas.push({
       id: note.id,
       name: note.name,
+      folder: note.folder,
       account: note.account,
       created: note.created,
       modified: note.modified,

@@ -3,16 +3,17 @@ import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { writeExport } from "../src/notes/exporter.js";
-import { RecipeStore, slugify } from "../src/store.js";
+import { RecipeStore, slugify, type StoredRecipe } from "../src/store.js";
 import { createApp } from "../src/web/server.js";
+import { groupByFolder } from "../src/web/views.js";
 
 const PNG_1PX =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
 
-const note = (id: string, name: string, body: string, created = "2026-01-01T00:00:00.000Z") => ({
+const note = (id: string, name: string, body: string, created = "2026-01-01T00:00:00.000Z", folder = "") => ({
   id,
   name,
-  folder: "Recipes",
+  folder,
   account: "iCloud",
   created,
   modified: created,
@@ -32,6 +33,8 @@ beforeAll(async () => {
     ),
     note("b", "Party ideas", "<div>Party ideas</div><div>Ask Sam about the date.</div>"),
     note("c", "Chia Jam", "<div>Chia Jam</div><ul><li>1 cup berries</li></ul>", "2026-02-01T00:00:00.000Z"),
+    note("d", "Lemon Tart", "<div>Lemon Tart</div><ul><li>3 lemons</li></ul>", undefined, "Desserts"),
+    note("e", "Sponge Cake", "<div>Sponge Cake</div><ul><li>4 eggs</li></ul>", undefined, "Desserts / Cakes"),
   ]);
   app = createApp(new RecipeStore(dir, 0));
 });
@@ -48,6 +51,19 @@ describe("server", () => {
     expect(body).toContain('href="/r/chia-jam"');
     expect(body).toContain('href="/r/chia-jam-2"');
     expect(body).toContain('href="/r/party-ideas"');
+  });
+
+  it("groups notes from sub-folders under a heading, after the top-level notes", async () => {
+    const body = await (await app.request("http://kitchen.local/")).text();
+    const at = (s: string) => body.indexOf(s);
+    expect(at("<h2>Desserts</h2>")).toBeGreaterThan(at('href="/r/party-ideas"'));
+    expect(at('href="/r/lemon-tart"')).toBeGreaterThan(at("<h2>Desserts</h2>"));
+    expect(at("<h2>Desserts / Cakes</h2>")).toBeGreaterThan(at('href="/r/lemon-tart"'));
+    expect(at('href="/r/sponge-cake"')).toBeGreaterThan(at("<h2>Desserts / Cakes</h2>"));
+  });
+
+  it("serves recipes from sub-folders", async () => {
+    expect((await app.request("http://kitchen.local/r/sponge-cake")).status).toBe(200);
   });
 
   it("embeds schema.org Recipe JSON-LD on recipe pages", async () => {
@@ -82,14 +98,26 @@ describe("server", () => {
 
   it("reports health", async () => {
     const res = await app.request("http://kitchen.local/healthz");
-    expect(await res.json()).toMatchObject({ ok: true, recipes: 3 });
+    expect(await res.json()).toMatchObject({ ok: true, recipes: 5 });
   });
 });
 
 describe("export folder", () => {
   it("removes notes that left the folder and keeps unchanged files", async () => {
     const result = await writeExport(dir, "Recipes", [note("a", "Chia Jam", "<div>Chia Jam</div>")]);
-    expect(result).toMatchObject({ total: 1, removed: 2 });
+    expect(result).toMatchObject({ total: 1, removed: 4 });
+  });
+});
+
+describe("groupByFolder", () => {
+  it("treats exports without a folder field as top-level notes", () => {
+    const r = (id: string, folder?: string) => ({ slug: id, meta: { id, folder } }) as unknown as StoredRecipe;
+    const groups = groupByFolder([r("x", "b"), r("y"), r("z", "A"), r("w", "")]);
+    expect(groups.map((g) => [g.folder, g.recipes.map((x) => x.slug)])).toEqual([
+      ["", ["y", "w"]],
+      ["A", ["z"]],
+      ["b", ["x"]],
+    ]);
   });
 });
 

@@ -20,7 +20,7 @@ Apple Notes "Recipes" folder ──► exporter (macOS) ──► export folder 
 
 - A Mac that is signed in to the iCloud account that has your notes, with Notes syncing. An always-on Mac mini is ideal.
 - Node.js 20 or newer (`brew install node`), or Docker for the server part.
-- Your recipes in one Notes folder. The default folder name is `Recipes`.
+- Your recipes in one Notes folder. The default folder name is `Recipes`. Sub-folders (like `Recipes › Desserts`) are included and shown as sections.
 
 ## Quick start (run directly)
 
@@ -73,7 +73,7 @@ docker compose up -d
 
 | Flag | Environment variable | Default | |
 |---|---|---|---|
-| `--folder` | `RECIPE_VIEW_FOLDER` | `Recipes` | Notes folder to read (in any account) |
+| `--folder` | `RECIPE_VIEW_FOLDER` | `Recipes` | Notes folder to read (in any account), including its sub-folders |
 | `--data` | `RECIPE_VIEW_DATA` | `~/.recipe-view` | Export folder |
 | `--port` | `RECIPE_VIEW_PORT` | `4242` | |
 | `--host` | `RECIPE_VIEW_HOST` | `0.0.0.0` | |
