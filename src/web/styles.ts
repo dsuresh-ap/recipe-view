@@ -50,6 +50,8 @@ h3 { font-size: 1rem; margin: 14px 0 6px; color: var(--muted); }
   border: 1px solid var(--line); border-radius: var(--radius);
   background: var(--surface); color: var(--text);
 }
+.folder + .folder { margin-top: 8px; }
+.folder h2 { margin: 18px 0 10px; color: var(--muted); }
 .recipes { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
 @media (min-width: 700px) { .recipes { grid-template-columns: 1fr 1fr; } }
 .recipes a {

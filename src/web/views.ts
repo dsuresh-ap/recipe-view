@@ -50,18 +50,40 @@ function footer(exportedAt: string | undefined): Html {
   return html`<footer>Synced from Apple Notes ${relativeTime(exportedAt)}.</footer>`;
 }
 
-export function indexPage(recipes: StoredRecipe[], exportedAt: string | undefined, folder: string | undefined): Html {
-  const list = recipes.length
-    ? html`<ul class="recipes" id="recipes">
-${recipes.map((r) => {
+function recipeItem(r: StoredRecipe): Html {
   const count = r.recipe.ingredients.reduce((n, g) => n + g.items.length, 0);
   const meta = [r.recipe.yield, count ? `${count} ingredients` : undefined].filter(Boolean).join(" · ");
   return html`<li data-name="${r.recipe.title.toLowerCase()}"><a href="/r/${r.slug}">
 ${r.imagePaths[0] ? html`<img src="${r.imagePaths[0]}" alt="" loading="lazy">` : ""}
 <span><span class="name">${r.recipe.title}</span>${meta ? html`<br><span class="meta">${meta}</span>` : ""}</span>
 </a></li>`;
-})}
+}
+
+/** Groups recipes by sub-folder: notes directly in the folder first, then sub-folders A–Z. */
+export function groupByFolder(recipes: StoredRecipe[]): { folder: string; recipes: StoredRecipe[] }[] {
+  const byFolder = new Map<string, StoredRecipe[]>();
+  for (const r of recipes) {
+    const folder = r.meta.folder ?? "";
+    let list = byFolder.get(folder);
+    if (!list) byFolder.set(folder, (list = []));
+    list.push(r);
+  }
+  return [...byFolder]
+    .sort(([a], [b]) => (a === "" ? -1 : b === "" ? 1 : a.localeCompare(b, undefined, { sensitivity: "base", numeric: true })))
+    .map(([folder, recipes]) => ({ folder, recipes }));
+}
+
+export function indexPage(recipes: StoredRecipe[], exportedAt: string | undefined, folder: string | undefined): Html {
+  const sections = groupByFolder(recipes);
+  const list = recipes.length
+    ? html`${sections.map(
+        (s) => html`<section class="folder">
+${s.folder ? html`<h2>${s.folder}</h2>` : ""}
+<ul class="recipes">
+${s.recipes.map(recipeItem)}
 </ul>
+</section>`,
+      )}
 <p class="empty" id="no-match" hidden>No recipes match.</p>`
     : html`<p class="empty">No recipes yet. Add notes to the “${folder ?? "Recipes"}” folder in Apple Notes, then wait for the next sync.</p>`;
 
@@ -74,15 +96,20 @@ ${footer(exportedAt)}
 <script>
 (() => {
   const input = document.getElementById("search");
-  const items = [...document.querySelectorAll("#recipes li")];
+  const sections = [...document.querySelectorAll("section.folder")];
   const none = document.getElementById("no-match");
   input?.addEventListener("input", () => {
     const q = input.value.trim().toLowerCase();
     let shown = 0;
-    for (const li of items) {
-      const hit = !q || li.dataset.name.includes(q);
-      li.hidden = !hit;
-      if (hit) shown++;
+    for (const section of sections) {
+      let inSection = 0;
+      for (const li of section.querySelectorAll("li")) {
+        const hit = !q || li.dataset.name.includes(q);
+        li.hidden = !hit;
+        if (hit) inSection++;
+      }
+      section.hidden = inSection === 0;
+      shown += inSection;
     }
     if (none) none.hidden = shown > 0;
   });
