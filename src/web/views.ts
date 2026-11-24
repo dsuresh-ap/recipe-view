@@ -59,7 +59,7 @@ ${r.imagePaths[0] ? html`<img src="${r.imagePaths[0]}" alt="" loading="lazy">` :
 </a></li>`;
 }
 
-/** Groups recipes by sub-folder: notes directly in the folder first, then sub-folders A–Z. */
+/** Groups recipes by sub-folder: sub-folders A–Z first, then notes directly in the folder. */
 export function groupByFolder(recipes: StoredRecipe[]): { folder: string; recipes: StoredRecipe[] }[] {
   const byFolder = new Map<string, StoredRecipe[]>();
   for (const r of recipes) {
@@ -69,21 +69,30 @@ export function groupByFolder(recipes: StoredRecipe[]): { folder: string; recipe
     list.push(r);
   }
   return [...byFolder]
-    .sort(([a], [b]) => (a === "" ? -1 : b === "" ? 1 : a.localeCompare(b, undefined, { sensitivity: "base", numeric: true })))
+    .sort(([a], [b]) => (a === "" ? 1 : b === "" ? -1 : a.localeCompare(b, undefined, { sensitivity: "base", numeric: true })))
     .map(([folder, recipes]) => ({ folder, recipes }));
+}
+
+function recipeList(recipes: StoredRecipe[]): Html {
+  return html`<ul class="recipes">
+${recipes.map(recipeItem)}
+</ul>`;
 }
 
 export function indexPage(recipes: StoredRecipe[], exportedAt: string | undefined, folder: string | undefined): Html {
   const sections = groupByFolder(recipes);
+  const hasSubfolders = sections.some((s) => s.folder !== "");
+  // With no sub-folders there's nothing to group, so the page stays one plain list.
+  const body = !hasSubfolders
+    ? html`<section class="folder">${recipeList(recipes)}</section>`
+    : sections.map(
+        (s) => html`<details class="folder" open data-folder="${s.folder}">
+<summary><h2>${s.folder || "Other recipes"}</h2><span class="count">${s.recipes.length}</span></summary>
+${recipeList(s.recipes)}
+</details>`,
+      );
   const list = recipes.length
-    ? html`${sections.map(
-        (s) => html`<section class="folder">
-${s.folder ? html`<h2>${s.folder}</h2>` : ""}
-<ul class="recipes">
-${s.recipes.map(recipeItem)}
-</ul>
-</section>`,
-      )}
+    ? html`${body}
 <p class="empty" id="no-match" hidden>No recipes match.</p>`
     : html`<p class="empty">No recipes yet. Add notes to the “${folder ?? "Recipes"}” folder in Apple Notes, then wait for the next sync.</p>`;
 
@@ -96,8 +105,27 @@ ${footer(exportedAt)}
 <script>
 (() => {
   const input = document.getElementById("search");
-  const sections = [...document.querySelectorAll("section.folder")];
+  const sections = [...document.querySelectorAll(".folder")];
   const none = document.getElementById("no-match");
+
+  // Collapsed sections are remembered on this device.
+  const key = "recipe-view:collapsed";
+  let collapsed = [];
+  try { collapsed = JSON.parse(localStorage.getItem(key) || "[]"); } catch {}
+  const searching = () => !!input && input.value.trim() !== "";
+  const restore = () => {
+    for (const d of sections) if (d.tagName === "DETAILS") d.open = !collapsed.includes(d.dataset.folder);
+  };
+  restore();
+  for (const d of sections) {
+    if (d.tagName !== "DETAILS") continue;
+    d.addEventListener("toggle", () => {
+      if (searching()) return; // Search opens sections itself; don't remember that.
+      collapsed = sections.filter((s) => s.tagName === "DETAILS" && !s.open).map((s) => s.dataset.folder);
+      try { localStorage.setItem(key, JSON.stringify(collapsed)); } catch {}
+    });
+  }
+
   input?.addEventListener("input", () => {
     const q = input.value.trim().toLowerCase();
     let shown = 0;
@@ -109,8 +137,10 @@ ${footer(exportedAt)}
         if (hit) inSection++;
       }
       section.hidden = inSection === 0;
+      if (q && section.tagName === "DETAILS" && inSection) section.open = true;
       shown += inSection;
     }
+    if (!q) restore();
     if (none) none.hidden = shown > 0;
   });
 })();
