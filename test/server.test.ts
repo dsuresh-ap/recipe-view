@@ -53,13 +53,15 @@ describe("server", () => {
     expect(body).toContain('href="/r/party-ideas"');
   });
 
-  it("groups notes from sub-folders under a heading, after the top-level notes", async () => {
+  it("shows sub-folders first as collapsible sections, then the top-level notes", async () => {
     const body = await (await app.request("http://kitchen.local/")).text();
     const at = (s: string) => body.indexOf(s);
-    expect(at("<h2>Desserts</h2>")).toBeGreaterThan(at('href="/r/party-ideas"'));
+    expect(body).toContain('<details class="folder" open data-folder="Desserts">');
     expect(at('href="/r/lemon-tart"')).toBeGreaterThan(at("<h2>Desserts</h2>"));
     expect(at("<h2>Desserts / Cakes</h2>")).toBeGreaterThan(at('href="/r/lemon-tart"'));
     expect(at('href="/r/sponge-cake"')).toBeGreaterThan(at("<h2>Desserts / Cakes</h2>"));
+    expect(at("<h2>Other recipes</h2>")).toBeGreaterThan(at('href="/r/sponge-cake"'));
+    expect(at('href="/r/party-ideas"')).toBeGreaterThan(at("<h2>Other recipes</h2>"));
   });
 
   it("serves recipes from sub-folders", async () => {
@@ -114,10 +116,25 @@ describe("groupByFolder", () => {
     const r = (id: string, folder?: string) => ({ slug: id, meta: { id, folder } }) as unknown as StoredRecipe;
     const groups = groupByFolder([r("x", "b"), r("y"), r("z", "A"), r("w", "")]);
     expect(groups.map((g) => [g.folder, g.recipes.map((x) => x.slug)])).toEqual([
-      ["", ["y", "w"]],
       ["A", ["z"]],
       ["b", ["x"]],
+      ["", ["y", "w"]],
     ]);
+  });
+});
+
+describe("index page without sub-folders", () => {
+  it("stays a single list with no section headings", async () => {
+    const flat = await mkdtemp(path.join(os.tmpdir(), "recipe-view-flat-"));
+    try {
+      await writeExport(flat, "Recipes", [note("a", "Toast", "<div>Toast</div><ul><li>Bread</li></ul>")]);
+      const body = await (await createApp(new RecipeStore(flat, 0)).request("http://kitchen.local/")).text();
+      expect(body).toContain('href="/r/toast"');
+      expect(body).not.toContain("<details");
+      expect(body).not.toContain("Other recipes");
+    } finally {
+      await rm(flat, { recursive: true, force: true });
+    }
   });
 });
 

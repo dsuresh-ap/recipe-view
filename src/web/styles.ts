@@ -50,8 +50,25 @@ h3 { font-size: 1rem; margin: 14px 0 6px; color: var(--muted); }
   border: 1px solid var(--line); border-radius: var(--radius);
   background: var(--surface); color: var(--text);
 }
-.folder + .folder { margin-top: 8px; }
-.folder h2 { margin: 18px 0 10px; color: var(--muted); }
+details.folder + details.folder { margin-top: 6px; }
+.folder summary {
+  display: flex; align-items: center; gap: 10px; min-height: 48px; margin: 8px 0;
+  cursor: pointer; list-style: none; color: var(--muted);
+  -webkit-tap-highlight-color: transparent;
+}
+.folder summary::-webkit-details-marker { display: none; }
+.folder summary::before {
+  content: ""; flex: none; width: 9px; height: 9px; margin: 0 4px 0 2px;
+  border-right: 2.5px solid currentColor; border-bottom: 2.5px solid currentColor;
+  transform: rotate(-45deg); transition: transform .15s ease;
+}
+.folder[open] summary::before { transform: rotate(45deg); }
+.folder summary h2 { margin: 0; color: var(--text); }
+.folder summary .count {
+  font-size: .85rem; background: var(--accent-soft); border-radius: 999px; padding: 1px 10px;
+}
+.folder summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 8px; }
+details.folder[open] { padding-bottom: 8px; }
 .recipes { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
 @media (min-width: 700px) { .recipes { grid-template-columns: 1fr 1fr; } }
 .recipes a {

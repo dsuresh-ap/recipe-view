@@ -98,10 +98,17 @@ type Options = {
   watch: boolean;
 };
 
+let lastSkipped = "";
+
 async function syncOnce(opts: Options): Promise<boolean> {
   try {
     const started = Date.now();
     const result = await exportNotes(opts.data, opts.folder);
+    const skipped = result.skipped.join(", ");
+    if (skipped && skipped !== lastSkipped) {
+      log(`Skipped folders Notes wouldn't let us read: ${skipped}. Their notes aren't shown until Notes allows it.`);
+    }
+    lastSkipped = skipped;
     if (result.total === 0) {
       log(`No notes found in a Notes folder named "${opts.folder}". Check the name, or pass --folder.`);
     } else if (result.written || result.removed) {

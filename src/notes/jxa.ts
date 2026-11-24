@@ -37,32 +37,62 @@ function run(argv) {
   const out = [];
   const seenFolders = {};
 
+  const skipped = [];
+
+  // Some items Notes lists as folders can't be read at all (even their name
+  // fails with "Can't get object"), e.g. one still syncing into a shared
+  // folder. Skip those instead of failing the whole export.
   function readFolder(folder, path, accountName) {
-    const folderId = folder.id();
+    const label = path.length ? path.join(separator) : folderName;
+    let folderId;
+    try {
+      folderId = folder.id();
+    } catch (e) {
+      skipped.push(label);
+      return;
+    }
     if (seenFolders[folderId]) return;
     seenFolders[folderId] = true;
 
-    const notes = folder.notes;
-    const ids = notes.id();
-    if (ids.length > 0) {
-      const names = notes.name();
-      const bodies = notes.body();
-      const created = notes.creationDate();
-      const modified = notes.modificationDate();
-      for (let i = 0; i < ids.length; i++) {
-        out.push({
-          id: ids[i],
-          name: names[i],
-          folder: path.join(separator),
-          account: accountName,
-          created: created[i].toISOString(),
-          modified: modified[i].toISOString(),
-          body: bodies[i],
-        });
+    try {
+      const notes = folder.notes;
+      const ids = notes.id();
+      if (ids.length > 0) {
+        const names = notes.name();
+        const bodies = notes.body();
+        const created = notes.creationDate();
+        const modified = notes.modificationDate();
+        for (let i = 0; i < ids.length; i++) {
+          out.push({
+            id: ids[i],
+            name: names[i],
+            folder: path.join(separator),
+            account: accountName,
+            created: created[i].toISOString(),
+            modified: modified[i].toISOString(),
+            body: bodies[i],
+          });
+        }
       }
+    } catch (e) {
+      skipped.push(label);
     }
-    for (const child of folder.folders()) {
-      readFolder(child, path.concat([child.name()]), accountName);
+
+    let children = [];
+    try {
+      children = folder.folders();
+    } catch (e) {
+      skipped.push(label + separator + "(sub-folders)");
+    }
+    for (const child of children) {
+      let name;
+      try {
+        name = child.name();
+      } catch (e) {
+        skipped.push(label + separator + "(unreadable folder)");
+        continue;
+      }
+      readFolder(child, path.concat([name]), accountName);
     }
   }
 
@@ -72,14 +102,20 @@ function run(argv) {
       readFolder(folder, [], accountName);
     }
   }
-  return JSON.stringify(out);
+  return JSON.stringify({ notes: out, skipped: skipped });
 }
 `;
+
+export interface NotesFolderContents {
+  notes: RawNote[];
+  /** Folders (as sub-folder paths) that Notes listed but wouldn't let us read. */
+  skipped: string[];
+}
 
 export class NotesAccessError extends Error {}
 
 /** Reads all notes in the named Notes folder and its sub-folders. macOS only. */
-export function readNotesFolder(folderName: string): Promise<RawNote[]> {
+export function readNotesFolder(folderName: string): Promise<NotesFolderContents> {
   if (process.platform !== "darwin") {
     return Promise.reject(
       new NotesAccessError(
@@ -99,7 +135,7 @@ export function readNotesFolder(folderName: string): Promise<RawNote[]> {
           return;
         }
         try {
-          resolve(JSON.parse(stdout) as RawNote[]);
+          resolve(JSON.parse(stdout) as NotesFolderContents);
         } catch {
           reject(new Error(`Could not read the output from Notes: ${stdout.slice(0, 200)}`));
         }

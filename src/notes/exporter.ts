@@ -108,7 +108,10 @@ export async function writeExport(
   return { total: metas.length, written, removed };
 }
 
-export async function exportNotes(dataDir: string, folder: string): Promise<ExportResult> {
-  const notes = await readNotesFolder(folder);
-  return writeExport(dataDir, folder, notes);
+export async function exportNotes(
+  dataDir: string,
+  folder: string,
+): Promise<ExportResult & { skipped: string[] }> {
+  const { notes, skipped } = await readNotesFolder(folder);
+  return { ...(await writeExport(dataDir, folder, notes)), skipped };
 }
